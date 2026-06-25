@@ -1,0 +1,18 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "Afterglow 多人在线放映室": {
+      "versions": [
+        {
+          "path": "public/index.html",
+          "createdAt": "2026-06-25T07:26:43.740Z",
+          "status": "needs-review"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-06-25T07:26:43.741Z",
+  "updatedAt": "2026-06-25T08:22:37.562Z"
+}

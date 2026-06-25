@@ -1,0 +1,6 @@
+node_modules
+tests
+preview-*.png
+_d_meta.json
+.DS_Store
+*.md

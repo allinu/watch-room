@@ -1,0 +1,20 @@
+{
+  "name": "afterglow-watch-room",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.mjs",
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check public/app.js && node --check tests/sync.mjs && node --check tests/openlist.mjs && node --check tests/ui.mjs",
+    "test:sync": "node tests/sync.mjs",
+    "test:openlist": "node tests/openlist.mjs",
+    "test:ui": "node tests/ui.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.0"
+  }
+}

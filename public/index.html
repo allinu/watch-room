@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#090a0d">
+    <title>Afterglow · 多人在线放映室</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <div id="app" data-screen-label="多人在线放映室">
+      <header class="topbar">
+        <button class="brand" id="brand-button" type="button" aria-label="Afterglow 首页">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="brand-word">AFTERGLOW</span>
+        </button>
+
+        <div class="room-identity">
+          <span class="eyebrow" id="room-name-label">ROOM</span>
+          <button class="room-code" id="copy-room" type="button">NIGHT-2049</button>
+          <span class="copy-feedback" id="copy-feedback">点击复制邀请</span>
+        </div>
+
+        <div class="topbar-actions">
+          <div class="network-pill" id="network-pill" data-quality="connecting">
+            <span class="signal-bars" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span id="network-label">正在连接</span>
+            <strong id="network-rtt">— ms</strong>
+          </div>
+          <button class="quiet-button room-switch-button" id="room-switch-button" type="button">房间</button>
+          <button class="quiet-button" id="invite-button" type="button">邀请</button>
+          <button class="avatar-button" id="profile-button" type="button" title="更改昵称">L</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="theater-panel">
+          <div class="theater-heading">
+            <div>
+              <span class="eyebrow">NOW SCREENING</span>
+              <h1 id="media-title">等待片源</h1>
+            </div>
+            <div class="live-state">
+              <span class="live-dot"></span>
+              <span id="sync-state">正在校准房间时间</span>
+            </div>
+          </div>
+
+          <div class="screen-shell" id="screen-shell">
+            <video id="video" playsinline preload="metadata" crossorigin="anonymous"></video>
+            <div class="screen-grain" aria-hidden="true"></div>
+            <div class="empty-state" id="empty-state">
+              <div class="aperture" aria-hidden="true"><span></span></div>
+              <p class="empty-kicker">THE SCREEN IS QUIET</p>
+              <h2>添加一部影片，今晚就有了去处。</h2>
+              <p>支持 OpenList 文件路径、MP4 / WebM / HLS 等在线直链。</p>
+              <button class="primary-button" id="empty-add-source" type="button">添加片源</button>
+            </div>
+
+            <button class="center-play" id="center-play" type="button" aria-label="播放或暂停">
+              <span></span>
+            </button>
+
+            <div class="reaction-layer" id="reaction-layer" aria-live="polite"></div>
+
+            <div class="video-controls" id="video-controls">
+              <div class="timeline-wrap">
+                <input id="timeline" type="range" min="0" max="1000" value="0" aria-label="播放进度">
+                <div class="timeline-meta">
+                  <span id="current-time">00:00</span>
+                  <span id="duration-time">00:00</span>
+                </div>
+              </div>
+              <div class="control-row">
+                <div class="control-group">
+                  <button class="control-button play-button" id="play-button" type="button" aria-label="播放"><span></span></button>
+                  <button class="control-button" id="back-button" type="button" aria-label="后退十秒">−10</button>
+                  <button class="control-button" id="forward-button" type="button" aria-label="前进十秒">+10</button>
+                  <button class="control-button volume-button" id="mute-button" type="button" aria-label="静音"><span></span></button>
+                  <input class="volume-slider" id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="音量">
+                </div>
+                <div class="control-group control-group-right">
+                  <span class="sync-badge" id="drift-badge">SYNC ±0.00s</span>
+                  <button class="control-button text-control" id="source-button" type="button">片源</button>
+                  <button class="control-button fullscreen-button" id="fullscreen-button" type="button" aria-label="全屏"><span></span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="under-screen">
+            <div class="source-summary">
+              <span class="source-icon">URL</span>
+              <div>
+                <strong id="source-name">尚未添加片源</strong>
+                <span id="source-detail">主持人可以从 OpenList 或在线地址载入影片</span>
+              </div>
+            </div>
+            <div class="reaction-bar">
+              <button type="button" data-reaction="赞">赞</button>
+              <button type="button" data-reaction="笑">笑</button>
+              <button type="button" data-reaction="惊">惊</button>
+              <span></span>
+              <button class="take-control-button" id="take-control" type="button">接管控制</button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="side-panel">
+          <div class="side-tabs" role="tablist">
+            <button class="side-tab active" data-tab="people" type="button">观众 <span id="member-count">1</span></button>
+            <button class="side-tab" data-tab="chat" type="button">聊天 <span class="unread-dot" id="unread-dot"></span></button>
+          </div>
+
+          <section class="tab-content active" id="people-tab">
+            <div class="section-label">
+              <span>ONLINE</span>
+              <span id="region-count">1 个地区</span>
+            </div>
+            <div class="member-list" id="member-list"></div>
+
+            <div class="latency-card">
+              <div class="latency-card-head">
+                <div>
+                  <span class="eyebrow">GLOBAL SYNC</span>
+                  <strong>跨区同步引擎</strong>
+                </div>
+                <span class="engine-state">运行中</span>
+              </div>
+              <div class="latency-graph" id="latency-graph" aria-hidden="true"></div>
+              <div class="latency-stats">
+                <div><span>往返延迟</span><strong id="stat-rtt">—</strong></div>
+                <div><span>时钟偏移</span><strong id="stat-offset">—</strong></div>
+                <div><span>播放漂移</span><strong id="stat-drift">—</strong></div>
+              </div>
+              <p id="sync-explanation">正在采集网络样本，为本次放映选择同步窗口。</p>
+            </div>
+          </section>
+
+          <section class="tab-content" id="chat-tab">
+            <div class="chat-list" id="chat-list"></div>
+            <form class="chat-form" id="chat-form">
+              <input id="chat-input" type="text" maxlength="500" placeholder="说点什么…" autocomplete="off">
+              <button type="submit">发送</button>
+            </form>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <div class="modal" id="source-modal" role="dialog" aria-modal="true" aria-labelledby="source-modal-title" hidden>
+      <form class="modal-card" id="source-form">
+        <div class="modal-head">
+          <div>
+            <span class="eyebrow">ADD TO THE SCREEN</span>
+            <h2 id="source-modal-title">添加片源</h2>
+          </div>
+          <button class="close-button" data-close-modal="source-modal" type="button" aria-label="关闭">×</button>
+        </div>
+
+        <div class="source-tabs">
+          <button class="source-tab active" data-source-tab="direct" type="button">在线直链</button>
+          <button class="source-tab" data-source-tab="openlist" type="button">OpenList</button>
+        </div>
+
+        <div class="source-pane active" id="direct-pane">
+          <label>
+            <span>视频地址</span>
+            <input id="direct-url" type="url" placeholder="https://example.com/movie.mp4">
+          </label>
+          <label>
+            <span>片名</span>
+            <input id="direct-title" type="text" placeholder="留空则自动读取文件名">
+          </label>
+          <p class="field-hint">浏览器需能直接访问该地址。MP4 与 WebM 可直接播放；HLS 取决于浏览器原生支持。</p>
+        </div>
+
+        <div class="source-pane" id="openlist-pane">
+          <div class="openlist-connect" id="openlist-connect">
+            <label>
+              <span>OpenList 首页或文件夹页面地址</span>
+              <div class="connected-input">
+                <input id="openlist-address" type="url" placeholder="https://drive.example.com/Movies">
+                <button class="secondary-button" id="openlist-connect-button" type="button">连接</button>
+              </div>
+            </label>
+            <p class="field-hint">可直接粘贴 OpenList 首页、文件夹或文件页面地址，系统会自动识别站点和目录。</p>
+          </div>
+          <div class="file-browser" id="file-browser" hidden>
+            <div class="browser-toolbar">
+              <div class="breadcrumb" id="openlist-breadcrumb"></div>
+              <button class="browser-link" id="openlist-change-site" type="button">更换站点</button>
+            </div>
+            <div class="browser-search">
+              <input id="openlist-search" type="search" placeholder="搜索当前目录及子目录">
+              <button class="secondary-button" id="openlist-search-button" type="button">搜索</button>
+            </div>
+            <div class="file-list-head">
+              <span>名称</span>
+              <span>大小</span>
+            </div>
+            <div class="file-list" id="openlist-file-list"></div>
+            <div class="selected-file" id="openlist-selected" hidden>
+              <span class="selected-file-type">VIDEO</span>
+              <div>
+                <strong id="openlist-selected-name"></strong>
+                <span id="openlist-selected-path"></span>
+              </div>
+              <button id="openlist-clear-selection" type="button" aria-label="取消选择">×</button>
+            </div>
+          </div>
+          <details>
+            <summary>鉴权与私密文件</summary>
+            <div class="form-grid auth-grid">
+              <label>
+                <span>API Token（可选）</span>
+                <input id="openlist-token" type="password" autocomplete="off">
+              </label>
+              <label>
+                <span>文件密码（可选）</span>
+                <input id="openlist-password" type="password" autocomplete="off">
+              </label>
+            </div>
+          </details>
+          <p class="field-hint">选择视频后，服务端调用 OpenList 的 <code>/api/fs/get</code> 获取临时直链。</p>
+        </div>
+
+        <div class="form-error" id="source-error"></div>
+        <div class="modal-actions">
+          <button class="secondary-button" data-close-modal="source-modal" type="button">取消</button>
+          <button class="primary-button" id="confirm-source" type="button">载入并同步</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal room-modal" id="room-modal" role="dialog" aria-modal="true" aria-labelledby="room-modal-title" hidden>
+      <div class="modal-card room-modal-card">
+        <div class="modal-head">
+          <div>
+            <span class="eyebrow">WATCH TOGETHER</span>
+            <h2 id="room-modal-title">今晚，在哪一间放映室见？</h2>
+          </div>
+          <button class="close-button" data-close-modal="room-modal" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="room-mode-tabs">
+          <button class="room-mode-tab active" data-room-mode="create" type="button">创建房间</button>
+          <button class="room-mode-tab" data-room-mode="join" type="button">加入房间</button>
+        </div>
+        <section class="room-mode-pane active" id="create-room-pane">
+          <label>
+            <span>房间名称</span>
+            <input id="new-room-name" type="text" maxlength="48" placeholder="周五夜场">
+          </label>
+          <label>
+            <span>自定义房间代码（可选）</span>
+            <input id="new-room-code" type="text" maxlength="24" placeholder="留空则自动生成">
+          </label>
+          <p class="field-hint">创建后你将成为主持人，负责片源和播放进度。</p>
+          <button class="primary-button room-primary-action" id="create-room-button" type="button">创建并进入</button>
+        </section>
+        <section class="room-mode-pane" id="join-room-pane">
+          <label>
+            <span>房间代码或邀请链接</span>
+            <input id="join-room-code" type="text" placeholder="例如 NOVA-2049">
+          </label>
+          <div class="room-preview" id="room-preview" hidden>
+            <div>
+              <span class="eyebrow">ROOM FOUND</span>
+              <strong id="room-preview-name"></strong>
+            </div>
+            <span id="room-preview-members"></span>
+          </div>
+          <p class="field-hint">输入代码后加入现有放映室，当前片源和进度会自动同步。</p>
+          <button class="primary-button room-primary-action" id="join-room-button" type="button">查找并加入</button>
+        </section>
+        <div class="form-error" id="room-error"></div>
+      </div>
+    </div>
+
+    <div class="modal compact-modal" id="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" hidden>
+      <form class="modal-card" id="profile-form">
+        <div class="modal-head">
+          <div>
+            <span class="eyebrow">YOUR SEAT</span>
+            <h2 id="profile-modal-title">加入放映室</h2>
+          </div>
+        </div>
+        <label>
+          <span>昵称</span>
+          <input id="display-name" type="text" maxlength="24" value="Lion">
+        </label>
+        <label>
+          <span>所在地区</span>
+          <select id="region-select">
+            <option value="Asia · Shanghai">亚洲 · 上海</option>
+            <option value="Asia · Singapore">亚洲 · 新加坡</option>
+            <option value="Europe · Frankfurt">欧洲 · 法兰克福</option>
+            <option value="North America · Virginia">北美 · 弗吉尼亚</option>
+            <option value="Oceania · Sydney">大洋洲 · 悉尼</option>
+          </select>
+        </label>
+        <div class="modal-actions">
+          <button class="primary-button" id="join-button" value="default" type="submit">进入房间</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>
