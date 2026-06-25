@@ -88,8 +88,11 @@ async function resolveOpenList(req, res) {
     }
     const data = await openListRequest(base, "/api/fs/get", { path, password: password || "" }, token);
     if (!data?.raw_url) return json(res, 502, { error: "OpenList 未返回可播放直链。" });
+    // Force HTTPS to prevent mixed-content blocking (page is served over HTTPS) and
+    // remove "same-origin" from protocol-relative URLs (//example.com/file.mp4).
+    const rawUrl = String(data.raw_url || "").replace(/^(https?:)?\/\//i, "https://");
     return json(res, 200, {
-      url: data.raw_url,
+      url: rawUrl,
       name: data.name || String(path).split("/").pop(),
       size: data.size || 0,
       provider: "OpenList"

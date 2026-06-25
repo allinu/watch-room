@@ -641,8 +641,22 @@ video.addEventListener("play", () => {
 video.addEventListener("pause", updatePlaybackUi);
 video.addEventListener("durationchange", updatePlaybackUi);
 video.addEventListener("error", () => {
-  if (!state.autoplayBlocked) {
-    toast("视频载入失败。请检查地址或跨域许可。", "error");
+  if (state.autoplayBlocked) return;
+  const code = video.error?.code || 0;
+  const msg = video.error?.message || "";
+  console.warn("video error:", code, msg);
+  // Distinguish common error types
+  if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+    toast("此视频格式不被浏览器支持，或地址无效。", "error");
+  } else if (code === MediaError.MEDIA_ERR_NETWORK) {
+    // Skip toast if applyMedia's retry handler is already showing one
+    if (video.networkState !== HTMLMediaElement.NETWORK_NO_SOURCE) {
+      toast("视频加载失败，可能是网络或跨域问题。", "error");
+    }
+  } else if (code === MediaError.MEDIA_ERR_DECODE) {
+    toast("视频解码失败，请尝试其他格式。", "error");
+  } else {
+    toast("视频载入失败，请检查地址。", "error");
   }
 });
 
