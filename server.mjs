@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
+import { saveRoom, loadRoom, deleteRoomFromKV, isPersistent } from "./db.mjs";
 
 const PORT = Number(process.env.PORT || 4311);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -176,9 +177,12 @@ const server = http.createServer(async (req, res) => {
         do id = generateRoomId(); while (rooms.has(id));
       }
       if (rooms.has(id)) return json(res, 409, { error: "这个房间代码已经被使用。" });
+      // Custom codes: also check KV so stale rooms from old Vercel instances don't block reuse
+      if (body.code && await loadRoom(id)) return json(res, 409, { error: "这个房间代码已经被使用。" });
       const room = makeRoom(id);
       room.name = String(body.name || "未命名放映室").trim().slice(0, 48) || "未命名放映室";
       rooms.set(id, room);
+      persist(room);
       return json(res, 201, { id: room.id, name: room.name, createdAt: room.createdAt });
     } catch (error) {
       return json(res, 400, { error: error.message || "创建房间失败" });
@@ -186,7 +190,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === "GET" && req.url.startsWith("/api/rooms/")) {
     const id = normalizeRoomId(decodeURIComponent(req.url.split("/").pop() || ""));
-    const room = rooms.get(id);
+    const room = await ensureRoom(id);
     if (!room) return json(res, 404, { error: "房间不存在或已经关闭。" });
     return json(res, 200, {
       id: room.id,
@@ -223,6 +227,19 @@ function makeRoom(id) {
     clients: new Map(),
     chat: []
   };
+}
+
+/** Lazily load a room from local cache or KV. */
+async function ensureRoom(id) {
+  if (rooms.has(id)) return rooms.get(id);
+  const loaded = await loadRoom(id);
+  if (loaded) rooms.set(id, loaded);
+  return loaded;
+}
+
+/** Fire-and-forget persist (catches errors internally). */
+function persist(room, ttl) {
+  saveRoom(room, ttl).catch(err => console.error("persist error:", err.message));
 }
 
 function getRoom(id) {
@@ -353,7 +370,11 @@ function removeClient(client) {
   if (room.clients.size === 0) {
     clearTimeout(room.hostGraceTimer);
     room.hostGraceTimer = null;
+    // Persist with 30-min TTL so the room is still joinable across Vercel instances.
+    // KV TTL handles cleanup even if this instance is recycled.
+    persist(room, 30 * 60);
     setTimeout(() => {
+      // Only clean local cache — KV TTL handles remote cleanup.
       if (rooms.get(room.id)?.clients.size === 0) rooms.delete(room.id);
     }, 30 * 60 * 1000).unref();
   } else {
@@ -363,6 +384,50 @@ function removeClient(client) {
       at: Date.now()
     });
   }
+}
+
+/* ─── Async join handler (may load from KV) ───────────────────── */
+
+async function handleJoin(ws, client, data) {
+  removeClient(client);
+  const roomId = normalizeRoomId(data.roomId);
+  let room = rooms.get(roomId);
+  // Fallback to KV for rooms created on other Vercel instances
+  if (!room) room = await loadRoom(roomId);
+  if (!room) return send(ws, "join-error", { message: "房间不存在或已经关闭。", roomId });
+  if (!rooms.has(roomId)) rooms.set(roomId, room);
+  // Room is active again — extend KV TTL to 2h
+  persist(room);
+
+  client.name = String(data.name || "访客").trim().slice(0, 24) || "访客";
+  client.region = String(data.region || "Auto").slice(0, 24);
+  client.persistentId = String(data.persistentId || "").slice(0, 64);
+  client.room = room;
+  room.clients.set(client.id, client);
+
+  // Check: returning host within grace period?
+  if (!room.hostId && room.hostPersistentId && client.persistentId === room.hostPersistentId) {
+    clearTimeout(room.hostGraceTimer);
+    room.hostGraceTimer = null;
+    room.hostId = client.id;
+    send(ws, "host-changed", { hostId: client.id, reason: "restored" });
+  } else if (!room.hostId) {
+    room.hostId = client.id;
+    send(ws, "host-changed", { hostId: client.id, reason: "first-member" });
+  }
+
+  // send full snapshot immediately
+  send(ws, "snapshot", roomSnapshot(room));
+  broadcastMembers(room);
+  broadcast(room, "notice", { text: `${client.name} 加入了放映室`, at: Date.now() }, client.id);
+  // also send an immediate sync tick so the joiner has current playback state
+  const now = Date.now();
+  send(ws, "sync", {
+    playback: computePlaybackState(room, now),
+    serverNow: now,
+    hostId: room.hostId,
+    media: room.media ? { url: room.media.url, title: room.media.title, source: room.media.source } : null
+  });
 }
 
 /* ─── WebSocket handling ───────────────────────────────────── */
@@ -400,38 +465,9 @@ wss.on("connection", (ws) => {
 
     /* ── Join room ────────────────────────────────────────── */
     if (event === "join") {
-      removeClient(client);
-      const roomId = normalizeRoomId(data.roomId);
-      const room = rooms.get(roomId);
-      if (!room) return send(ws, "join-error", { message: "房间不存在或已经关闭。", roomId });
-      client.name = String(data.name || "访客").trim().slice(0, 24) || "访客";
-      client.region = String(data.region || "Auto").slice(0, 24);
-      client.persistentId = String(data.persistentId || "").slice(0, 64);
-      client.room = room;
-      room.clients.set(client.id, client);
-
-      // Check: returning host within grace period?
-      if (!room.hostId && room.hostPersistentId && client.persistentId === room.hostPersistentId) {
-        clearTimeout(room.hostGraceTimer);
-        room.hostGraceTimer = null;
-        room.hostId = client.id;
-        send(ws, "host-changed", { hostId: client.id, reason: "restored" });
-      } else if (!room.hostId) {
-        room.hostId = client.id;
-        send(ws, "host-changed", { hostId: client.id, reason: "first-member" });
-      }
-
-      // send full snapshot immediately
-      send(ws, "snapshot", roomSnapshot(room));
-      broadcastMembers(room);
-      broadcast(room, "notice", { text: `${client.name} 加入了放映室`, at: Date.now() }, client.id);
-      // also send an immediate sync tick so the joiner has current playback state
-      const now = Date.now();
-      send(ws, "sync", {
-        playback: computePlaybackState(room, now),
-        serverNow: now,
-        hostId: room.hostId,
-        media: room.media ? { url: room.media.url, title: room.media.title, source: room.media.source } : null
+      handleJoin(ws, client, data).catch(err => {
+        console.error("join error:", err);
+        send(ws, "error", { message: "加入房间失败" });
       });
       return;
     }
@@ -488,6 +524,7 @@ wss.on("connection", (ws) => {
         updatedAt: Date.now(),
         revision: room.playback.revision + 1
       };
+      persist(room);
       return broadcast(room, "media", {
         media: room.media,
         playback: computePlaybackState(room),
@@ -509,6 +546,7 @@ wss.on("connection", (ws) => {
         updatedAt: executeAt,
         revision: room.playback.revision + 1
       };
+      persist(room);
       return broadcast(room, "playback", {
         playback: { ...room.playback },
         executeAt,
@@ -542,6 +580,7 @@ wss.on("connection", (ws) => {
       };
       room.chat.push(item);
       room.chat = room.chat.slice(-100);
+      persist(room);
       return broadcast(room, "chat", item);
     }
   });
